@@ -464,10 +464,9 @@ In other words:
   "Returns two values, the values of new DAY and SEC slots of the timestamp adjusted to the given timezone."
   (declare (type integer sec day offset))
   (multiple-value-bind (offset-day offset-sec)
-      (truncate (abs offset) +seconds-per-day+)
-    (let* ((offset-sign (signum offset))
-           (new-sec (+ sec (* offset-sign offset-sec)))
-           (new-day (+ day (* offset-sign offset-day))))
+      (truncate offset +seconds-per-day+)
+    (let* ((new-sec (+ sec offset-sec))
+           (new-day (+ day offset-day)))
       (cond ((minusp new-sec)
              (incf new-sec +seconds-per-day+)
              (decf new-day))
