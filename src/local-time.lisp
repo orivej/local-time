@@ -754,10 +754,7 @@ the previous day given by OFFSET."
                                                           (:minute +seconds-per-minute+)
                                                           (:hour +seconds-per-hour+))))
                                        +seconds-per-day+)
-                              (setf part :day
-                                    offset days-offset
-                                    sec new-sec)
-                              (go top)))
+                              (return-from direct-adjust (values nsec new-sec (+ day days-offset)))))
                            (:day
                             (incf day offset)
                             (setf new-utc-offset (or utc-offset
