@@ -247,11 +247,11 @@
 
 (defun %tz-read-header (inf)
   `(:utc-count ,(%read-binary-integer inf 4)
-         :wall-count ,(%read-binary-integer inf 4)
-         :leap-count ,(%read-binary-integer inf 4)
-         :transition-count ,(%read-binary-integer inf 4)
-         :type-count ,(%read-binary-integer inf 4)
-         :abbrev-length ,(%read-binary-integer inf 4)))
+    :wall-count ,(%read-binary-integer inf 4)
+    :leap-count ,(%read-binary-integer inf 4)
+    :transition-count ,(%read-binary-integer inf 4)
+    :type-count ,(%read-binary-integer inf 4)
+    :abbrev-length ,(%read-binary-integer inf 4)))
 
 (defun %tz-read-transitions (inf count)
   (make-array count
@@ -272,9 +272,10 @@
                    (%read-binary-integer inf 1))))
 
 (defun %tz-read-leap-seconds (inf count)
-  (loop for idx from 1 upto count
-     collect (list (%read-binary-integer inf 4)
-                   (%read-binary-integer inf 4))))
+  (nreverse
+   (loop for idx from 1 upto count
+         collect (list (%read-binary-integer inf 4)
+                       (%read-binary-integer inf 4)))))
 
 (defun %tz-read-abbrevs (inf length)
   (let ((a (make-array length :element-type '(unsigned-byte 8))))
@@ -319,8 +320,8 @@
              (timezone-transitions (%tz-read-transitions inf (getf header :transition-count)))
              (subzone-indexes (%tz-read-indexes inf (getf header :transition-count)))
              (subzone-raw-info (%tz-read-subzone inf (getf header :type-count)))
-             (leap-second-info (%tz-read-leap-seconds inf (getf header :leap-count)))
              (abbreviation-buf (%tz-read-abbrevs inf (getf header :abbrev-length)))
+             (leap-second-info (%tz-read-leap-seconds inf (getf header :leap-count)))
              (std-indicators (%tz-read-indicators inf (getf header :wall-count)))
              (gmt-indicators (%tz-read-indicators inf (getf header :utc-count)))
              (subzone-info (%tz-make-subzones subzone-raw-info
@@ -1039,10 +1040,25 @@ It should be an instance of a class that responds to one or more of the methods 
   clock.  The date is encoded by convention as a timestamp with the
   time set to 00:00:00UTC."))
 
+(defun %leap-seconds-offset (leap-seconds sec)
+  "Find the latest leap second adjustment effective at SEC system time."
+  (dolist (entry leap-seconds 0)
+    (destructuring-bind (leap-second-sec adjustment) entry
+      (when (>= sec leap-second-sec)
+        (return adjustment)))))
+
+(defun %adjust-sec-for-leap-seconds (sec)
+  "Ajdust SEC from system time to Unix time (on systems those clock does not jump back over leap seconds)."
+  (let ((leap-seconds (timezone-leap-seconds (%realize-timezone *default-timezone*))))
+    (when leap-seconds
+      (decf sec (%leap-seconds-offset leap-seconds sec))))
+  sec)
+
 (defmethod clock-now (clock)
   (declare (ignore clock))
   (multiple-value-bind (sec nsec) (%get-current-time)
-    (unix-to-timestamp sec :nsec nsec)))
+    (let ((sec (%adjust-sec-for-leap-seconds sec)))
+      (unix-to-timestamp sec :nsec nsec))))
 
 (defmethod clock-today (clock)
   (declare (ignore clock))
